@@ -21,6 +21,9 @@ public class LottoCard {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "OWNER_SUBJECT", nullable = false)
+    private String ownerSubject;
+
     @Column(name = "FIRST_DRAW_DATE")
     private LocalDate firstDrawDate;
 

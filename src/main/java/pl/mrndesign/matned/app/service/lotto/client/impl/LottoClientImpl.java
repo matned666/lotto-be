@@ -7,7 +7,6 @@ import pl.mrndesign.matned.app.dto.LottoDrawDto;
 import pl.mrndesign.matned.app.service.common.PropertiesService;
 import pl.mrndesign.matned.app.service.lotto.client.LottoClient;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -19,6 +18,9 @@ import java.util.List;
 
 @Service
 public class LottoClientImpl implements LottoClient {
+
+    private static final int MAX_SEARCH_DAYS_PADDING = 14;
+    private static final int MAX_SEARCH_DAYS_PER_DRAWING = 4;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -35,33 +37,34 @@ public class LottoClientImpl implements LottoClient {
     public List<LottoDrawDto> getDrawingsFor(LottoCardDto card) {
         var result = new ArrayList<LottoDrawDto>();
         for (String type : card.getDrawType().getTypesToRequest()) {
-            getDrawResultForDate(card.getFirstDrawDate(), type, result);
+            result.addAll(getDrawResults(card.getFirstDrawDate(), card.getNumberOfDrawings(), type));
         }
         return result;
     }
 
-    public List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result) {
-        if (date.isAfter(LocalDate.now())) {
-            return result;
-        }
-        try {
-            String responseBody = "";
+    private List<LottoDrawDto> getDrawResults(LocalDate firstDrawDate, int numberOfDrawings, String drawTypeStr) {
+        var result = new ArrayList<LottoDrawDto>();
+        var date = firstDrawDate;
+        var today = LocalDate.now();
+        var maxSearchDays = numberOfDrawings * MAX_SEARCH_DAYS_PER_DRAWING + MAX_SEARCH_DAYS_PADDING;
+
+        for (int searchedDays = 0; !date.isAfter(today) && result.size() < numberOfDrawings && searchedDays < maxSearchDays; searchedDays++) {
             try {
-                responseBody = makeRequest(date, drawTypeStr);
+                var responseBody = makeRequest(date, drawTypeStr);
+                var lottoDraws = lottoParser.parse(responseBody, drawTypeStr);
+                result.addAll(lottoDraws);
             } catch (Exception e) {
-                var nextDate = date.plusDays(1);
-                return getDrawResultForDate(nextDate, drawTypeStr, result);
+                throw new RuntimeException("Could not read Lotto draws for " + date + " and " + drawTypeStr + ".", e);
             }
-            var lottoDraws = lottoParser.parse(responseBody, drawTypeStr);
-            result.addAll(lottoDraws);
-            var nextDate = date.plusDays(1);
-            return getDrawResultForDate(nextDate, drawTypeStr, result);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            date = date.plusDays(1);
         }
+
+        return result.size() > numberOfDrawings
+                ? result.subList(0, numberOfDrawings)
+                : result;
     }
 
-    private String makeRequest(LocalDate date, String drawTypeStr) throws IOException, InterruptedException {
+    private String makeRequest(LocalDate date, String drawTypeStr) {
         var url = generateUrl(date, drawTypeStr);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -74,16 +77,23 @@ public class LottoClientImpl implements LottoClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(
-                request,
-                HttpResponse.BodyHandlers.ofString()
-        );
+        try {
+            HttpResponse<String> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("HTTP " + response.statusCode() + "\n" + response.body());
+            if (response.statusCode() != 200) {
+                throw new RuntimeException("HTTP " + response.statusCode() + "\n" + response.body());
+            }
+
+            return response.body();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Could not connect to Lotto API.", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while calling Lotto API.", e);
         }
-
-        return response.body();
     }
 
     private String generateUrl(LocalDate date, String drawTypeStr) {
