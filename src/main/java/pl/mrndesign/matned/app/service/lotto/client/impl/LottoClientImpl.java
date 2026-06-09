@@ -1,6 +1,7 @@
 package pl.mrndesign.matned.app.service.lotto.client.impl;
 
 import org.springframework.stereotype.Service;
+import pl.mrndesign.matned.app.exception.LottoException;
 import pl.mrndesign.matned.app.mapper.LottoParser;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
 import pl.mrndesign.matned.app.dto.LottoDrawDto;
@@ -37,34 +38,33 @@ public class LottoClientImpl implements LottoClient {
     public List<LottoDrawDto> getDrawingsFor(LottoCardDto card) {
         var result = new ArrayList<LottoDrawDto>();
         for (String type : card.getDrawType().getTypesToRequest()) {
-            result.addAll(getDrawResults(card.getFirstDrawDate(), card.getNumberOfDrawings(), type));
+            getDrawResultForDate(card.getFirstDrawDate(), type, result, card.getNumberOfDrawings(), 1);
         }
         return result;
     }
 
-    private List<LottoDrawDto> getDrawResults(LocalDate firstDrawDate, int numberOfDrawings, String drawTypeStr) {
-        var result = new ArrayList<LottoDrawDto>();
-        var date = firstDrawDate;
-        var today = LocalDate.now();
-        var maxSearchDays = numberOfDrawings * MAX_SEARCH_DAYS_PER_DRAWING + MAX_SEARCH_DAYS_PADDING;
-
-        for (int searchedDays = 0; !date.isAfter(today) && result.size() < numberOfDrawings && searchedDays < maxSearchDays; searchedDays++) {
-            try {
-                var responseBody = makeRequest(date, drawTypeStr);
-                var lottoDraws = lottoParser.parse(responseBody, drawTypeStr);
-                result.addAll(lottoDraws);
-            } catch (Exception e) {
-                throw new RuntimeException("Could not read Lotto draws for " + date + " and " + drawTypeStr + ".", e);
-            }
-            date = date.plusDays(1);
+    public List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result, int numberOfDraws, int actualDraw) {
+        if (date.isAfter(LocalDate.now()) || numberOfDraws < actualDraw ) {
+            return result;
         }
-
-        return result.size() > numberOfDrawings
-                ? result.subList(0, numberOfDrawings)
-                : result;
+        try {
+            String responseBody = "";
+            try {
+                responseBody = makeRequest(date, drawTypeStr);
+            } catch (LottoException e) {
+                var nextDate = date.plusDays(1);
+                return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, actualDraw);
+            }
+            var lottoDraws = lottoParser.parse(responseBody, drawTypeStr);
+            result.addAll(lottoDraws);
+            var nextDate = date.plusDays(1);
+            return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, ++actualDraw);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private String makeRequest(LocalDate date, String drawTypeStr) {
+    private String makeRequest(LocalDate date, String drawTypeStr) throws LottoException {
         var url = generateUrl(date, drawTypeStr);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -83,6 +83,10 @@ public class LottoClientImpl implements LottoClient {
                     HttpResponse.BodyHandlers.ofString()
             );
 
+            if (response.statusCode() == 404) {
+                throw new LottoException(response.body());
+            }
+
             if (response.statusCode() != 200) {
                 throw new RuntimeException("HTTP " + response.statusCode() + "\n" + response.body());
             }
@@ -93,6 +97,8 @@ public class LottoClientImpl implements LottoClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while calling Lotto API.", e);
+        } catch (LottoException e) {
+            throw new LottoException(e.getMessage());
         }
     }
 

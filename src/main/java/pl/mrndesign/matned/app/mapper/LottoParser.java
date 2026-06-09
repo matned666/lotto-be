@@ -1,6 +1,7 @@
 package pl.mrndesign.matned.app.mapper;
 
 import org.springframework.stereotype.Component;
+import pl.mrndesign.matned.app.exception.LottoException;
 import pl.mrndesign.matned.app.model.DrawType;
 import pl.mrndesign.matned.app.dto.LottoDrawDto;
 import tools.jackson.databind.JsonNode;
@@ -15,7 +16,7 @@ public class LottoParser {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public List<LottoDrawDto> parse(String body, String drawTypeStr) throws Exception {
+    public List<LottoDrawDto> parse(String body, String drawTypeStr) throws LottoException {
         JsonNode root = objectMapper.readTree(body);
         JsonNode results = root.get("items");
         List<LottoDrawDto> output = new ArrayList<>();
