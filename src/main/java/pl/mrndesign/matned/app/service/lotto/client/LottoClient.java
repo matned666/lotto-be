@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface LottoClient {
 
-    List<LottoDrawDto> getDrawingsFor(LottoCardDto card);
+    List<LottoDrawDto> getDrawsFor(LottoCardDto card);
 }

@@ -13,7 +13,7 @@ public class Main {
         var checkService = new CheckServiceImpl();
 
         var card = lottoCardService.getLottoCard();
-        var drawings = lottoClient.getDrawingsFor(card);
+        var drawings = lottoClient.getDrawsFor(card);
 
         var results = checkService.check(card, drawings);
 

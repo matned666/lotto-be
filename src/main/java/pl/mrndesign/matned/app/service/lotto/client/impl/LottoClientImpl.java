@@ -35,10 +35,10 @@ public class LottoClientImpl implements LottoClient {
     }
 
     @Override
-    public List<LottoDrawDto> getDrawingsFor(LottoCardDto card) {
+    public List<LottoDrawDto> getDrawsFor(LottoCardDto card) {
         var result = new ArrayList<LottoDrawDto>();
         for (String type : card.getDrawType().getTypesToRequest()) {
-            getDrawResultForDate(card.getFirstDrawDate(), type, result, card.getNumberOfDrawings(), 1);
+            getDrawResultForDate(card.getFirstDrawDate(), type, result, card.getNumberOfDraws(), 1);
         }
         return result;
     }

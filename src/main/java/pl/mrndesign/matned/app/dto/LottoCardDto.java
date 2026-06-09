@@ -15,7 +15,7 @@ public class LottoCardDto {
 
     private final LocalDate firstDrawDate;
 
-    private final int numberOfDrawings;
+    private final int numberOfDraws;
 
     private final List<LottoCardNumbersDto> numbers;
 

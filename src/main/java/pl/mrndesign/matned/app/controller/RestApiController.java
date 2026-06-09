@@ -133,7 +133,7 @@ public class RestApiController {
         if (card == null) {
             throwBadRequest("Card payload is required.");
         }
-        validateCommon(card.getFirstDrawDate(), card.getNumberOfDrawings(), card.getNumbers(), card.getDrawType());
+        validateCommon(card.getFirstDrawDate(), card.getNumberOfDraws(), card.getNumbers(), card.getDrawType());
     }
 
     private void validateCard(LottoCardSaveDto card) {

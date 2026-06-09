@@ -13,7 +13,7 @@ public class LottoClientMock implements LottoClient {
 
 
     @Override
-    public List<LottoDrawDto> getDrawingsFor(LottoCardDto card) {
+    public List<LottoDrawDto> getDrawsFor(LottoCardDto card) {
         return Stream.of(
                 new LottoDrawDto(LocalDate.of(2026, 5, 28), new int[]{6, 7, 15, 22, 42, 43}, DrawType.LOTTO),
                 new LottoDrawDto(LocalDate.of(2026, 5, 28), new int[]{2, 4, 8, 24, 32, 38}, DrawType.LOTTO_PLUS),
@@ -28,7 +28,7 @@ public class LottoClientMock implements LottoClient {
         )
                 .filter(d -> card.getFirstDrawDate().isEqual(d.getDate()) || d.getDate().isAfter(card.getFirstDrawDate()))
                 .filter(d -> card.isPlus() || (!card.isPlus() && d.getDrawType() != DrawType.LOTTO_PLUS))
-                .limit(card.isPlus()? card.getNumberOfDrawings() * 2: card.getNumberOfDrawings())
+                .limit(card.isPlus()? card.getNumberOfDraws() * 2: card.getNumberOfDraws())
                 .toList();
     }
 }

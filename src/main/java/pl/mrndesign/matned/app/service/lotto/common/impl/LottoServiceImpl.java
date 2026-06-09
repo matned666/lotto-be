@@ -23,14 +23,14 @@ public class LottoServiceImpl implements LottoService {
 
     @Override
     public List<CheckResultDto> checkDraw(LottoCardDto card) {
-        var drawings = lottoClient.getDrawingsFor(card);
+        var drawings = lottoClient.getDrawsFor(card);
         return checkService.check(card, drawings);
     }
 
     @Override
     public List<CheckResultDto> checkDrawStatic(LottoCardDto card) {
         var client = new LottoClientMock();
-        var drawings = client.getDrawingsFor(card);
+        var drawings = client.getDrawsFor(card);
         return checkService.check(card, drawings);
     }
 
