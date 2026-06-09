@@ -26,6 +26,13 @@ spring:
             scope:
               - read:user
               - user:email
+          google:
+            client-id: ${lottocheck.oauth.google-client-id}
+            client-secret: ${lottocheck.oauth.google-client-secret}
+            scope:
+              - openid
+              - profile
+              - email
 app:
   security:
     login-success-url: ${lottocheck.local.frontend-url}

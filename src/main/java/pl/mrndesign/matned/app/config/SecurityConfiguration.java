@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,8 +19,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -64,12 +67,20 @@ public class SecurityConfiguration {
                         .logoutSuccessUrl(securityProperties.logoutSuccessUrl())
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-                        .deleteCookies("JSESSIONID"));
+                        .deleteCookies("JSESSIONID"))
+                .exceptionHandling(exceptions -> exceptions
+                        .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                PathPatternRequestMatcher.withDefaults().matcher("/api/**")
+                        )
+                );
 
         if (clientRegistrations.getIfAvailable() == null) {
             http.exceptionHandling(exceptions -> exceptions
                     .authenticationEntryPoint((request, response, exception) ->
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED)));
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
+
+                    ));
         } else {
             http.oauth2Login(oauth2 -> oauth2
                     .defaultSuccessUrl(securityProperties.loginSuccessUrl(), true));
@@ -93,6 +104,7 @@ public class SecurityConfiguration {
         configuration.setAllowCredentials(true);
 
         var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("https://github.com/login", configuration);
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
