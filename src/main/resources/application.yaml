@@ -7,10 +7,31 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  datasource:
+    url: ${lottocheck.datasource.url}
+    username: ${lottocheck.datasource.username}
+    password: ${lottocheck.datasource.password}
+    driver-class-name: ${lottocheck.datasource.driver-class-name}
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${lottocheck.oauth.github-client-id}
+            client-secret: ${lottocheck.oauth.github-client-secret}
+            scope:
+              - read:user
+              - user:email
 app:
-  lotto:
-    client:
-      host: https://developers.lotto.pl
-      endpoints:
-        byDatePerGame: /api/open/v1/lotteries/draw-results/by-date-per-game
-
+  security:
+    login-success-url: ${lottocheck.local.frontend-url}
+    logout-success-url: ${lottocheck.local.frontend-url}/login
+    allowed-origin-patterns:
+      - ${lottocheck.local.frontend-url}
+      - ${lottocheck.local.frontend-ip-url}
+lotto:
+  client:
+    key: ${lottocheck.lotto.client.key}
+    host: https://developers.lotto.pl
+    endpoints:
+      byDatePerGame: /api/open/v1/lotteries/draw-results/by-date-per-game
