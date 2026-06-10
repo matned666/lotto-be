@@ -28,7 +28,7 @@ public class LottoCard {
     private LocalDate firstDrawDate;
 
     @Column(name = "NUMBER_OF_DRAWINGS")
-    private int numberOfDrawings;
+    private int numberOfDraws;
 
     @Builder.Default
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)

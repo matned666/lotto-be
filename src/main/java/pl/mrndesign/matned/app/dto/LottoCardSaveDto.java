@@ -17,7 +17,7 @@ public class LottoCardSaveDto {
 
     private LocalDate firstDrawDate;
 
-    private int numberOfDrawings;
+    private int numberOfDraws;
 
     private List<LottoCardNumbersDto> numbers;
 

@@ -53,7 +53,7 @@ public final class LogSanitizer {
         return "cardId=" + card.getId()
                 + ", drawType=" + drawType(card.getDrawType())
                 + ", firstDrawDate=" + safeDate(card.getFirstDrawDate())
-                + ", drawings=" + card.getNumberOfDrawings()
+                + ", drawings=" + card.getNumberOfDraws()
                 + ", groups=" + numberGroups(card.getNumbers());
     }
 

@@ -122,7 +122,7 @@ public class RestApiController {
         return LottoCard.builder()
                 .ownerSubject(ownerSubject)
                 .firstDrawDate(card.getFirstDrawDate())
-                .numberOfDrawings(card.getNumberOfDrawings())
+                .numberOfDraws(card.getNumberOfDraws())
                 .drawType(card.getDrawType())
                 .numbers(toNumbers(card))
                 .build();
@@ -130,7 +130,7 @@ public class RestApiController {
 
     private LottoCard updateEntity(LottoCard existingCard, LottoCardSaveDto card) {
         existingCard.setFirstDrawDate(card.getFirstDrawDate());
-        existingCard.setNumberOfDrawings(card.getNumberOfDrawings());
+        existingCard.setNumberOfDraws(card.getNumberOfDraws());
         existingCard.setDrawType(card.getDrawType());
         existingCard.getNumbers().clear();
         existingCard.getNumbers().addAll(toNumbers(card));
@@ -147,7 +147,7 @@ public class RestApiController {
         var dto = new LottoCardSaveDto();
         dto.setId(card.getId());
         dto.setFirstDrawDate(card.getFirstDrawDate());
-        dto.setNumberOfDrawings(card.getNumberOfDrawings());
+        dto.setNumberOfDraws(card.getNumberOfDraws());
         dto.setDrawType(card.getDrawType());
         dto.setNumbers(card.getNumbers().stream()
                 .map(numbers -> new LottoCardNumbersDto(numbers.getNumbers().stream().mapToInt(Integer::intValue).toArray()))
@@ -174,17 +174,17 @@ public class RestApiController {
         if (card == null) {
             throwBadRequest("Card payload is required.");
         }
-        validateCommon(card.getFirstDrawDate(), card.getNumberOfDrawings(), card.getNumbers(), card.getDrawType());
+        validateCommon(card.getFirstDrawDate(), card.getNumberOfDraws(), card.getNumbers(), card.getDrawType());
     }
 
-    private void validateCommon(LocalDate firstDrawDate, int numberOfDrawings, List<LottoCardNumbersDto> numbers, Object drawType) {
+    private void validateCommon(LocalDate firstDrawDate, int numberOfDraws, List<LottoCardNumbersDto> numbers, Object drawType) {
         if (firstDrawDate == null) {
             throwBadRequest("First draw date is required.");
         }
         if (firstDrawDate.isAfter(LocalDate.now())) {
             throwBadRequest("First draw date cannot be in the future.");
         }
-        if (numberOfDrawings < 1 || numberOfDrawings > MAX_NUMBER_OF_DRAWINGS) {
+        if (numberOfDraws < 1 || numberOfDraws > MAX_NUMBER_OF_DRAWINGS) {
             throwBadRequest("Number of drawings must be between 1 and " + MAX_NUMBER_OF_DRAWINGS + ".");
         }
         if (drawType == null) {
