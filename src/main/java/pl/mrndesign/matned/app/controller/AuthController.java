@@ -12,17 +12,26 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @GetMapping("/me")
     public AuthenticatedUserResponse currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
-
+        if (authService.isUserSaved(authentication.getName())) {
+            authService.saveNewUser(authentication);
+        }
         var attributes = principalAttributes(authentication.getPrincipal());
         var displayName = firstString(attributes, "name", "given_name", "preferred_username", "email");
         var email = firstString(attributes, "email", "preferred_username", "upn");
