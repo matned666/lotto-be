@@ -14,7 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "USER")
+@Table(name = "USERS")
 public class User {
 
     @Id

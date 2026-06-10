@@ -27,7 +27,7 @@ import java.util.UUID;
 @Table(
         name = "OAUTH_ACCOUNTS",
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"PROVIDER", "PROVIDER_USER_ID"})
+                @UniqueConstraint(columnNames = {"PROVIDER_TYPE", "PROVIDER_USER_ID"})
         }
 )
 public class OAuthAccount {

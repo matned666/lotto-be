@@ -12,10 +12,11 @@ spring:
     username: ${lottocheck.datasource.username}
     password: ${lottocheck.datasource.password}
     driver-class-name: ${lottocheck.datasource.driver-class-name}
-  flyway:
+  liquibase:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 0
+    change-log: classpath:db/changelog.xml
+    database-change-log-table: DATABASECHANGELOG
+    database-change-log-lock-table: DATABASECHANGELOGLOCK
   security:
     oauth2:
       client:
@@ -54,3 +55,6 @@ server:
       cookie:
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: ${SESSION_COOKIE_SAME_SITE:lax}
+logging:
+  level:
+    liquibase: INFO
