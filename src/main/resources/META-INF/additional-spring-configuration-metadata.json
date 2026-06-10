@@ -1,0 +1,29 @@
+{
+  "properties": [
+    {
+      "name": "lottocheck.logging.file.path",
+      "type": "java.lang.String",
+      "description": "Directory where application log files are stored."
+    },
+    {
+      "name": "lottocheck.logging.file.max-size",
+      "type": "java.lang.String",
+      "description": "Maximum size of a single active log file before rollover."
+    },
+    {
+      "name": "lottocheck.logging.file.archive-max-age",
+      "type": "java.time.Duration",
+      "description": "Maximum age of archived log files before deletion."
+    },
+    {
+      "name": "lottocheck.logging.file.archive-total-size",
+      "type": "java.lang.String",
+      "description": "Maximum total size of archived log files before deletion."
+    },
+    {
+      "name": "lottocheck.logging.file.archive-max-files",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of archived log files retained."
+    }
+  ]
+}

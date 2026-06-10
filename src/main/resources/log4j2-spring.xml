@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <Property name="APP_NAME">${spring:spring.application.name:-lotto-check}</Property>
+        <Property name="LOG_PATH">${sys:LOG_PATH:-${spring:logging.file.path:-/var/log/lotto-check}}</Property>
+        <Property name="LOG_FILE_MAX_SIZE">${spring:lottocheck.logging.file.max-size:-50 MB}</Property>
+        <Property name="LOG_ARCHIVE_MAX_AGE">${spring:lottocheck.logging.file.archive-max-age:-P30D}</Property>
+        <Property name="LOG_ARCHIVE_TOTAL_SIZE">${spring:lottocheck.logging.file.archive-total-size:-2 GB}</Property>
+        <Property name="LOG_ARCHIVE_MAX_FILES">${spring:lottocheck.logging.file.archive-max-files:-200}</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n%throwable</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <RollingFile name="File"
+                     fileName="${LOG_PATH}/${APP_NAME}.log"
+                     filePattern="${LOG_PATH}/archive/${APP_NAME}-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="${LOG_FILE_MAX_SIZE}"/>
+            </Policies>
+            <DefaultRolloverStrategy max="${LOG_ARCHIVE_MAX_FILES}">
+                <Delete basePath="${LOG_PATH}/archive" maxDepth="1">
+                    <IfFileName glob="${APP_NAME}-*.log.gz"/>
+                    <IfAny>
+                        <IfLastModified age="${LOG_ARCHIVE_MAX_AGE}"/>
+                        <IfAccumulatedFileSize exceeds="${LOG_ARCHIVE_TOTAL_SIZE}"/>
+                    </IfAny>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="liquibase" level="info"/>
+
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+    </Loggers>
+</Configuration>

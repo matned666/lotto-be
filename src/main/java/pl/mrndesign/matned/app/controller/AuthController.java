@@ -3,6 +3,7 @@ package pl.mrndesign.matned.app.controller;
 import java.util.List;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -12,10 +13,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import pl.mrndesign.matned.app.logging.LogSanitizer;
 import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -27,9 +30,12 @@ public class AuthController {
     @GetMapping("/me")
     public AuthenticatedUserResponse currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
+            log.warn("Rejected /api/auth/me request due to missing or unauthenticated principal.");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
+        log.info("Processing /api/auth/me for subject={}", LogSanitizer.maskSubject(authentication.getName()));
         if (authService.isUserSaved(authentication.getName())) {
+            log.info("User marked as existing in repository for subject={}", LogSanitizer.maskSubject(authentication.getName()));
             authService.saveNewUser(authentication);
         }
         var attributes = principalAttributes(authentication.getPrincipal());
@@ -39,16 +45,22 @@ public class AuthController {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        return new AuthenticatedUserResponse(
+        var response = new AuthenticatedUserResponse(
                 authentication.getName(),
                 displayName == null ? authentication.getName() : displayName,
                 email,
                 authorities
         );
+        log.info("Resolved authenticated user: subject={}, email={}, authorities={}",
+                LogSanitizer.maskSubject(response.subject()),
+                LogSanitizer.maskEmail(response.email()),
+                response.authorities().size());
+        return response;
     }
 
     @GetMapping("/csrf")
     public CsrfToken csrfToken(CsrfToken csrfToken) {
+        log.debug("Issued CSRF token response.");
         return csrfToken;
     }
 

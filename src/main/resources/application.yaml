@@ -56,5 +56,15 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: ${SESSION_COOKIE_SAME_SITE:lax}
 logging:
+  file:
+    path: ${lottocheck.logging.file.path:/var/log/lotto-check}
   level:
     liquibase: INFO
+
+lottocheck:
+  logging:
+    file:
+      max-size: ${LOTTOCHECK_LOGGING_FILE_MAX_SIZE:50 MB}
+      archive-max-age: ${LOTTOCHECK_LOGGING_FILE_ARCHIVE_MAX_AGE:P30D}
+      archive-total-size: ${LOTTOCHECK_LOGGING_FILE_ARCHIVE_TOTAL_SIZE:2 GB}
+      archive-max-files: ${LOTTOCHECK_LOGGING_FILE_ARCHIVE_MAX_FILES:200}

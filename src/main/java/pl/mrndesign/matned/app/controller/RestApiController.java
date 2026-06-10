@@ -1,5 +1,6 @@
 package pl.mrndesign.matned.app.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -14,6 +15,7 @@ import pl.mrndesign.matned.app.dto.LottoCardNumbersDto;
 import pl.mrndesign.matned.app.dto.LottoCardSaveDto;
 import pl.mrndesign.matned.app.model.LottoCard;
 import pl.mrndesign.matned.app.model.LottoNumbers;
+import pl.mrndesign.matned.app.logging.LogSanitizer;
 import pl.mrndesign.matned.app.repository.LottoCardRepository;
 import pl.mrndesign.matned.app.service.lotto.common.LottoService;
 
@@ -23,6 +25,7 @@ import java.util.Optional;
 import java.time.LocalDate;
 
 @RestController
+@Slf4j
 public class RestApiController {
 
     private static final int LOTTO_NUMBERS_COUNT = 6;
@@ -41,48 +44,78 @@ public class RestApiController {
 
     @PostMapping(path = "/check")
     public ResponseEntity<List<CheckResultDto>> checkDraw(@RequestBody LottoCardDto card) {
+        log.info("Received /check request: {}", LogSanitizer.summarizeCard(card));
         validateCard(card);
         List<CheckResultDto> result = lottoService.checkDraw(card);
+        log.info("Completed /check request: {}", LogSanitizer.summarizeResults(result));
         return ResponseEntity.ok(result);
     }
 
     @PostMapping(path = "/check-static")
     public ResponseEntity<List<CheckResultDto>> staticCheckDraw(@RequestBody LottoCardDto card) {
+        log.info("Received /check-static request: {}", LogSanitizer.summarizeCard(card));
         validateCard(card);
         List<CheckResultDto> result = lottoService.checkDrawStatic(card);
+        log.info("Completed /check-static request: {}", LogSanitizer.summarizeResults(result));
         return ResponseEntity.ok(result);
     }
 
     @PostMapping(path = "/cards")
     public ResponseEntity<LottoCardSaveDto> saveCard(@RequestBody LottoCardSaveDto card, Authentication authentication) {
+        log.info("Received /cards save request: {}", LogSanitizer.summarizeSavedCard(card));
         validateCard(card);
         var ownerSubject = ownerSubject(authentication);
+        log.info("Saving card for owner={}", LogSanitizer.maskSubject(ownerSubject));
 
         if (card.getId() != null) {
             return lottoCardRepository.findByIdAndOwnerSubject(card.getId(), ownerSubject)
                     .map(existingCard -> updateEntity(existingCard, card))
                     .map(lottoCardRepository::save)
                     .map(this::toDto)
+                    .map(savedCard -> {
+                        log.info("Updated card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
+                                LogSanitizer.summarizeSavedCard(savedCard));
+                        return savedCard;
+                    })
                     .map(ResponseEntity::ok)
-                    .orElseGet(() -> ResponseEntity.notFound().build());
+                    .orElseGet(() -> {
+                        log.warn("Card update failed, card not found for owner={} and cardId={}",
+                                LogSanitizer.maskSubject(ownerSubject), card.getId());
+                        return ResponseEntity.notFound().build();
+                    });
         }
 
-        return ResponseEntity.ok(toDto(lottoCardRepository.save(toEntity(card, ownerSubject))));
+        var savedCard = toDto(lottoCardRepository.save(toEntity(card, ownerSubject)));
+        log.info("Created card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
+                LogSanitizer.summarizeSavedCard(savedCard));
+        return ResponseEntity.ok(savedCard);
     }
 
     @GetMapping(path = "/cards")
     public ResponseEntity<List<LottoCardSaveDto>> getCards(Authentication authentication) {
-        return ResponseEntity.ok(lottoCardRepository.findAllByOwnerSubjectOrderByIdDesc(ownerSubject(authentication)).stream()
+        var ownerSubject = ownerSubject(authentication);
+        var cards = lottoCardRepository.findAllByOwnerSubjectOrderByIdDesc(ownerSubject).stream()
                 .map(this::toDto)
-                .toList());
+                .toList();
+        log.info("Returned cards list for owner={}: count={}", LogSanitizer.maskSubject(ownerSubject), cards.size());
+        return ResponseEntity.ok(cards);
     }
 
     @GetMapping(path = "/cards/latest")
     public ResponseEntity<LottoCardSaveDto> getLatestCard(Authentication authentication) {
-        return Optional.ofNullable(lottoCardRepository.findTopByOwnerSubjectOrderByIdDesc(ownerSubject(authentication)))
+        var ownerSubject = ownerSubject(authentication);
+        return Optional.ofNullable(lottoCardRepository.findTopByOwnerSubjectOrderByIdDesc(ownerSubject))
                 .map(this::toDto)
+                .map(card -> {
+                    log.info("Returned latest card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
+                            LogSanitizer.summarizeSavedCard(card));
+                    return card;
+                })
                 .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.noContent().build());
+                .orElseGet(() -> {
+                    log.info("No latest card found for owner={}", LogSanitizer.maskSubject(ownerSubject));
+                    return ResponseEntity.noContent().build();
+                });
     }
 
     private LottoCard toEntity(LottoCardSaveDto card, String ownerSubject) {
@@ -124,6 +157,7 @@ public class RestApiController {
 
     private String ownerSubject(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
+            log.warn("Rejected request due to missing or unauthenticated principal.");
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
         return authentication.getName();
@@ -178,6 +212,7 @@ public class RestApiController {
     }
 
     private void throwBadRequest(String message) {
+        log.warn("Rejected request validation: {}", message);
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
