@@ -3,7 +3,6 @@ package pl.mrndesign.matned.app.logging;
 import pl.mrndesign.matned.app.dto.CheckResultDto;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
 import pl.mrndesign.matned.app.dto.LottoCardNumbersDto;
-import pl.mrndesign.matned.app.dto.LottoCardSaveDto;
 import pl.mrndesign.matned.app.dto.LottoDrawDto;
 import pl.mrndesign.matned.app.model.DrawType;
 
@@ -46,7 +45,7 @@ public final class LogSanitizer {
                 + ", groups=" + numberGroups(card.getNumbers());
     }
 
-    public static String summarizeSavedCard(LottoCardSaveDto card) {
+    public static String summarizeSavedCard(LottoCardDto card) {
         if (card == null) {
             return "card=null";
         }

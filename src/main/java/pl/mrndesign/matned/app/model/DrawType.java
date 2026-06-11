@@ -19,7 +19,7 @@ public enum DrawType {
     }
 
     public static DrawType get(String drawStr){
-        return switch (drawStr) {
+        return switch (drawStr.toUpperCase()) {
             case "LOTTO" -> LOTTO;
             case "LOTTOPLUS" -> LOTTO_PLUS;
             default -> throw new InvalidParameterException("No DrawType:" + drawStr);

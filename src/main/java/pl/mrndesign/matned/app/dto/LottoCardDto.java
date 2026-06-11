@@ -1,27 +1,40 @@
 package pl.mrndesign.matned.app.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 import pl.mrndesign.matned.app.model.DrawType;
 
 import java.time.LocalDate;
 import java.util.List;
 
+@Setter
 @Getter
+@NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 @ToString
 public class LottoCardDto {
 
-    private final LocalDate firstDrawDate;
+	private Long id;
 
-    private final int numberOfDraws;
+	private String ownerSubject;
 
-    private final List<LottoCardNumbersDto> numbers;
+    private LocalDate firstDrawDate;
+
+    private int numberOfDraws;
+
+    private List<LottoCardNumbersDto> numbers;
 
     private DrawType drawType;
 
-    public boolean isPlus() {
+	public LottoCardDto(LocalDate firstDrawDate, int numberOfDraws, List<LottoCardNumbersDto> numbers, DrawType drawType) {
+		this.firstDrawDate = firstDrawDate;
+		this.numberOfDraws = numberOfDraws;
+		this.numbers = numbers;
+		this.drawType = drawType;
+	}
+
+	public boolean isPlus() {
         return DrawType.LOTTO_PLUS == drawType;
     }
 

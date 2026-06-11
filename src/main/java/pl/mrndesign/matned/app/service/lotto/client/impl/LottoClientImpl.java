@@ -3,12 +3,14 @@ package pl.mrndesign.matned.app.service.lotto.client.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pl.mrndesign.matned.app.exception.LottoException;
-import pl.mrndesign.matned.app.mapper.LottoParser;
+import pl.mrndesign.matned.app.model.DrawType;
+import pl.mrndesign.matned.app.parser.LottoParser;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
 import pl.mrndesign.matned.app.dto.LottoDrawDto;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
 import pl.mrndesign.matned.app.service.common.PropertiesService;
 import pl.mrndesign.matned.app.service.lotto.client.LottoClient;
+import pl.mrndesign.matned.app.service.lotto.draw.LottoDrawService;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,18 +25,16 @@ import java.util.List;
 @Slf4j
 public class LottoClientImpl implements LottoClient {
 
-    private static final int MAX_SEARCH_DAYS_PADDING = 14;
-    private static final int MAX_SEARCH_DAYS_PER_DRAWING = 4;
-
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private final LottoParser lottoParser;
     private final PropertiesService propertiesService;
+	private final LottoDrawService lottoDrawService;
 
-
-    public LottoClientImpl(LottoParser lottoParser, PropertiesService propertiesService) {
+    public LottoClientImpl(LottoParser lottoParser, PropertiesService propertiesService, LottoDrawService lottoDrawService) {
         this.lottoParser = lottoParser;
         this.propertiesService = propertiesService;
+	    this.lottoDrawService = lottoDrawService;
     }
 
     @Override
@@ -49,11 +49,24 @@ public class LottoClientImpl implements LottoClient {
         return result;
     }
 
-    public List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result, int numberOfDraws, int actualDraw) {
+    private List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result, int numberOfDraws, int actualDraw) {
         if (date.isAfter(LocalDate.now()) || numberOfDraws < actualDraw ) {
             log.debug("Stopping draw fetch recursion: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws));
             return result;
         }
+		List<LottoDrawDto> drawsFromDB = lottoDrawService.findDrawsFor(date, drawTypeStr);
+		if (!drawsFromDB.isEmpty() && drawsFromDB.stream().allMatch(d -> d.getNumbers() != null && d.getNumbers().length > 0)) {
+			log.info("Found draw in the database: {} {}", date, drawTypeStr);
+			result.addAll(drawsFromDB);
+			var nextDate = date.plusDays(1);
+			return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, ++actualDraw);
+		} else if (!drawsFromDB.isEmpty() && drawsFromDB.stream().anyMatch(d -> d.getNumbers() == null || d.getNumbers().length == 0)) {
+			log.info("Found NO draw day in the database: {} {} ", date, drawTypeStr);
+			var nextDate = date.plusDays(1);
+			return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, actualDraw);
+		} else {
+			log.info("Draw NOT found in the database: {} {} ... proceeding to Lotto API", date, drawTypeStr);
+		}
         try {
             String responseBody = "";
             try {
@@ -62,10 +75,11 @@ public class LottoClientImpl implements LottoClient {
             } catch (LottoException e) {
                 var nextDate = date.plusDays(1);
                 log.info("No draw found for type={} on date={}, moving to next date={}", drawTypeStr, date, nextDate);
+				lottoDrawService.save(List.of(new LottoDrawDto(date, DrawType.get(drawTypeStr))));
                 return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, actualDraw);
             }
             var lottoDraws = lottoParser.parse(responseBody, drawTypeStr);
-            result.addAll(lottoDraws);
+            result.addAll(lottoDrawService.save(lottoDraws));
             log.info("Parsed Lotto API response for type={}: addedDraws={}, accumulatedDraws={}",
                     drawTypeStr, lottoDraws.size(), result.size());
             var nextDate = date.plusDays(1);

@@ -1,12 +1,13 @@
 package pl.mrndesign.matned.app.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.*;
 import pl.mrndesign.matned.app.model.DrawType;
 
 import java.time.LocalDate;
 
+@Setter
 @Getter
+@NoArgsConstructor
 @AllArgsConstructor
 public class LottoDrawDto {
 
@@ -17,5 +18,8 @@ public class LottoDrawDto {
     private DrawType drawType;
 
 
-
+	public LottoDrawDto(LocalDate date, DrawType drawType) {
+		this.date = date;
+		this.drawType = drawType;
+	}
 }

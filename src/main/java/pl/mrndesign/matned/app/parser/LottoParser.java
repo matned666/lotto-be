@@ -1,4 +1,4 @@
-package pl.mrndesign.matned.app.mapper;
+package pl.mrndesign.matned.app.parser;
 
 import org.springframework.stereotype.Component;
 import pl.mrndesign.matned.app.exception.LottoException;

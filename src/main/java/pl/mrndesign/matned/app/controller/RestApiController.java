@@ -1,8 +1,8 @@
 package pl.mrndesign.matned.app.controller;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,17 +12,17 @@ import org.springframework.web.server.ResponseStatusException;
 import pl.mrndesign.matned.app.dto.CheckResultDto;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
 import pl.mrndesign.matned.app.dto.LottoCardNumbersDto;
-import pl.mrndesign.matned.app.dto.LottoCardSaveDto;
-import pl.mrndesign.matned.app.model.LottoCard;
-import pl.mrndesign.matned.app.model.LottoNumbers;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
+import pl.mrndesign.matned.app.mapper.LottoMapper;
+import pl.mrndesign.matned.app.mapper.impl.LottoCardMapper;
+import pl.mrndesign.matned.app.model.LottoCard;
 import pl.mrndesign.matned.app.repository.LottoCardRepository;
 import pl.mrndesign.matned.app.service.lotto.common.LottoService;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDate;
 
 @RestController
 @Slf4j
@@ -36,6 +36,7 @@ public class RestApiController {
 
     private final LottoService lottoService;
     private final LottoCardRepository lottoCardRepository;
+	private final LottoMapper<LottoCard, LottoCardDto> lottoCardMapper = new LottoCardMapper();
 
     public RestApiController(LottoService lottoService, LottoCardRepository lottoCardRepository) {
         this.lottoService = lottoService;
@@ -61,7 +62,7 @@ public class RestApiController {
     }
 
     @PostMapping(path = "/cards")
-    public ResponseEntity<LottoCardSaveDto> saveCard(@RequestBody LottoCardSaveDto card, Authentication authentication) {
+    public ResponseEntity<LottoCardDto> saveCard(@RequestBody LottoCardDto card, Authentication authentication) {
         log.info("Received /cards save request: {}", LogSanitizer.summarizeSavedCard(card));
         validateCard(card);
         var ownerSubject = ownerSubject(authentication);
@@ -69,9 +70,9 @@ public class RestApiController {
 
         if (card.getId() != null) {
             return lottoCardRepository.findByIdAndOwnerSubject(card.getId(), ownerSubject)
-                    .map(existingCard -> updateEntity(existingCard, card))
+                    .map(existingCard -> lottoCardMapper.updateEntity(existingCard, card))
                     .map(lottoCardRepository::save)
-                    .map(this::toDto)
+                    .map(lottoCardMapper::toDto)
                     .map(savedCard -> {
                         log.info("Updated card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
                                 LogSanitizer.summarizeSavedCard(savedCard));
@@ -84,28 +85,28 @@ public class RestApiController {
                         return ResponseEntity.notFound().build();
                     });
         }
-
-        var savedCard = toDto(lottoCardRepository.save(toEntity(card, ownerSubject)));
+		card.setOwnerSubject(ownerSubject);
+        var savedCard = lottoCardMapper.toDto(lottoCardRepository.save(lottoCardMapper.toEntity(card)));
         log.info("Created card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
                 LogSanitizer.summarizeSavedCard(savedCard));
         return ResponseEntity.ok(savedCard);
     }
 
     @GetMapping(path = "/cards")
-    public ResponseEntity<List<LottoCardSaveDto>> getCards(Authentication authentication) {
+    public ResponseEntity<List<LottoCardDto>> getCards(Authentication authentication) {
         var ownerSubject = ownerSubject(authentication);
         var cards = lottoCardRepository.findAllByOwnerSubjectOrderByIdDesc(ownerSubject).stream()
-                .map(this::toDto)
+                .map(lottoCardMapper::toDto)
                 .toList();
         log.info("Returned cards list for owner={}: count={}", LogSanitizer.maskSubject(ownerSubject), cards.size());
         return ResponseEntity.ok(cards);
     }
 
     @GetMapping(path = "/cards/latest")
-    public ResponseEntity<LottoCardSaveDto> getLatestCard(Authentication authentication) {
+    public ResponseEntity<LottoCardDto> getLatestCard(Authentication authentication) {
         var ownerSubject = ownerSubject(authentication);
         return Optional.ofNullable(lottoCardRepository.findTopByOwnerSubjectOrderByIdDesc(ownerSubject))
-                .map(this::toDto)
+                .map(lottoCardMapper::toDto)
                 .map(card -> {
                     log.info("Returned latest card for owner={}: {}", LogSanitizer.maskSubject(ownerSubject),
                             LogSanitizer.summarizeSavedCard(card));
@@ -118,43 +119,6 @@ public class RestApiController {
                 });
     }
 
-    private LottoCard toEntity(LottoCardSaveDto card, String ownerSubject) {
-        return LottoCard.builder()
-                .ownerSubject(ownerSubject)
-                .firstDrawDate(card.getFirstDrawDate())
-                .numberOfDraws(card.getNumberOfDraws())
-                .drawType(card.getDrawType())
-                .numbers(toNumbers(card))
-                .build();
-    }
-
-    private LottoCard updateEntity(LottoCard existingCard, LottoCardSaveDto card) {
-        existingCard.setFirstDrawDate(card.getFirstDrawDate());
-        existingCard.setNumberOfDraws(card.getNumberOfDraws());
-        existingCard.setDrawType(card.getDrawType());
-        existingCard.getNumbers().clear();
-        existingCard.getNumbers().addAll(toNumbers(card));
-        return existingCard;
-    }
-
-    private List<LottoNumbers> toNumbers(LottoCardSaveDto card) {
-        return card.getNumbers().stream()
-                .map(numbers -> new LottoNumbers(Arrays.stream(numbers.getNumbers()).boxed().toList()))
-                .toList();
-    }
-
-    private LottoCardSaveDto toDto(LottoCard card) {
-        var dto = new LottoCardSaveDto();
-        dto.setId(card.getId());
-        dto.setFirstDrawDate(card.getFirstDrawDate());
-        dto.setNumberOfDraws(card.getNumberOfDraws());
-        dto.setDrawType(card.getDrawType());
-        dto.setNumbers(card.getNumbers().stream()
-                .map(numbers -> new LottoCardNumbersDto(numbers.getNumbers().stream().mapToInt(Integer::intValue).toArray()))
-                .toList());
-        return dto;
-    }
-
     private String ownerSubject(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             log.warn("Rejected request due to missing or unauthenticated principal.");
@@ -164,13 +128,6 @@ public class RestApiController {
     }
 
     private void validateCard(LottoCardDto card) {
-        if (card == null) {
-            throwBadRequest("Card payload is required.");
-        }
-        validateCommon(card.getFirstDrawDate(), card.getNumberOfDraws(), card.getNumbers(), card.getDrawType());
-    }
-
-    private void validateCard(LottoCardSaveDto card) {
         if (card == null) {
             throwBadRequest("Card payload is required.");
         }

@@ -32,6 +32,10 @@ public class LottoDraw {
     @Enumerated(EnumType.STRING)
     private DrawType drawType;
 
-
+	public LottoDraw(LocalDate date, LottoNumbers numbers, DrawType drawType) {
+		this.date = date;
+		this.numbers = numbers;
+		this.drawType = drawType;
+	}
 
 }
