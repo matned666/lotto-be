@@ -3,6 +3,7 @@ package pl.mrndesign.matned.app.service.lotto.client.impl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pl.mrndesign.matned.app.exception.LottoException;
+import pl.mrndesign.matned.app.exception.TooManyRequestsException;
 import pl.mrndesign.matned.app.model.DrawType;
 import pl.mrndesign.matned.app.parser.LottoParser;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
@@ -38,7 +39,7 @@ public class LottoClientImpl implements LottoClient {
     }
 
     @Override
-    public List<LottoDrawDto> getDrawsFor(LottoCardDto card) {
+    public List<LottoDrawDto> getDrawsFor(LottoCardDto card) throws TooManyRequestsException {
         log.info("Fetching draws from Lotto API for {}", LogSanitizer.summarizeCard(card));
         var result = new ArrayList<LottoDrawDto>();
         for (String type : card.getDrawType().getTypesToRequest()) {
@@ -49,7 +50,7 @@ public class LottoClientImpl implements LottoClient {
         return result;
     }
 
-    private List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result, int numberOfDraws, int actualDraw) {
+    private List<LottoDrawDto> getDrawResultForDate(LocalDate date, String drawTypeStr, List<LottoDrawDto> result, int numberOfDraws, int actualDraw) throws TooManyRequestsException {
         if (date.isAfter(LocalDate.now()) || numberOfDraws < actualDraw ) {
             log.debug("Stopping draw fetch recursion: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws));
             return result;
@@ -84,13 +85,16 @@ public class LottoClientImpl implements LottoClient {
                     drawTypeStr, lottoDraws.size(), result.size());
             var nextDate = date.plusDays(1);
             return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, ++actualDraw);
+        } catch (TooManyRequestsException e) {
+            log.error("Too many requests for draws: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws), e);
+            throw new TooManyRequestsException(e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error while fetching draws: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws), e);
             throw new RuntimeException(e);
         }
     }
 
-    private String makeRequest(LocalDate date, String drawTypeStr) throws LottoException {
+    private String makeRequest(LocalDate date, String drawTypeStr) throws LottoException, TooManyRequestsException {
         var url = generateUrl(date, drawTypeStr);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -114,6 +118,12 @@ public class LottoClientImpl implements LottoClient {
                 throw new LottoException(response.body());
             }
 
+            if (response.statusCode() == 429) {
+                log.warn("Lotto API returned 429 status={} for type={} and date={}",
+                        response.statusCode(), drawTypeStr, date);
+                throw new TooManyRequestsException("HTTP " + response.statusCode() + "\n" + response.body());
+            }
+
             if (response.statusCode() != 200) {
                 log.warn("Lotto API returned unexpected status={} for type={} and date={}",
                         response.statusCode(), drawTypeStr, date);
@@ -131,6 +141,8 @@ public class LottoClientImpl implements LottoClient {
             throw new RuntimeException("Interrupted while calling Lotto API.", e);
         } catch (LottoException e) {
             throw new LottoException(e.getMessage());
+        } catch (TooManyRequestsException e) {
+            throw new TooManyRequestsException(e.getMessage());
         }
     }
 

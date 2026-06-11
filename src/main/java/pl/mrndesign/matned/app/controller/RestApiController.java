@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import pl.mrndesign.matned.app.dto.CheckResultDto;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
 import pl.mrndesign.matned.app.dto.LottoCardNumbersDto;
+import pl.mrndesign.matned.app.exception.TooManyRequestsException;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
 import pl.mrndesign.matned.app.mapper.LottoMapper;
 import pl.mrndesign.matned.app.mapper.impl.LottoCardMapper;
@@ -47,7 +48,12 @@ public class RestApiController {
     public ResponseEntity<List<CheckResultDto>> checkDraw(@RequestBody LottoCardDto card) {
         log.info("Received /check request: {}", LogSanitizer.summarizeCard(card));
         validateCard(card);
-        List<CheckResultDto> result = lottoService.checkDraw(card);
+        List<CheckResultDto> result = null;
+        try {
+            result = lottoService.checkDraw(card);
+        } catch (TooManyRequestsException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
         log.info("Completed /check request: {}", LogSanitizer.summarizeResults(result));
         return ResponseEntity.ok(result);
     }

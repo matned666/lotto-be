@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pl.mrndesign.matned.app.dto.CheckResultDto;
 import pl.mrndesign.matned.app.dto.LottoCardDto;
+import pl.mrndesign.matned.app.exception.TooManyRequestsException;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
 import pl.mrndesign.matned.app.service.lotto.check.CheckService;
 import pl.mrndesign.matned.app.service.lotto.client.LottoClient;
@@ -25,7 +26,7 @@ public class LottoServiceImpl implements LottoService {
     }
 
     @Override
-    public List<CheckResultDto> checkDraw(LottoCardDto card) {
+    public List<CheckResultDto> checkDraw(LottoCardDto card) throws TooManyRequestsException {
         log.info("Starting live draw check: {}", LogSanitizer.summarizeCard(card));
         var drawings = lottoClient.getDrawsFor(card);
         log.info("Fetched live draws: {}", LogSanitizer.summarizeDrawBatch(drawings));
