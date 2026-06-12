@@ -69,10 +69,10 @@ public class SecurityConfiguration {
                         .clearAuthentication(true)
                         .deleteCookies("JSESSIONID"))
                 .exceptionHandling(exceptions -> exceptions
-                        .defaultAuthenticationEntryPointFor(
-                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                                PathPatternRequestMatcher.withDefaults().matcher("/api/**")
-                        )
+		                .defaultAuthenticationEntryPointFor(
+				                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+				                PathPatternRequestMatcher.withDefaults().matcher("/**")
+		                )
                 );
 
         if (clientRegistrations.getIfAvailable() == null) {
