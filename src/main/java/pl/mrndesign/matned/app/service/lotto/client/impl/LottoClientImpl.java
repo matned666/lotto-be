@@ -59,11 +59,11 @@ public class LottoClientImpl implements LottoClient {
 		if (!drawsFromDB.isEmpty() && drawsFromDB.stream().allMatch(d -> d.getNumbers() != null && d.getNumbers().length > 0)) {
 			log.info("Found draw in the database: {} {}", date, drawTypeStr);
 			result.addAll(drawsFromDB);
-			var nextDate = date.plusDays(1);
+			var nextDate = getNextDrawDate(date);
 			return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, ++actualDraw);
 		} else if (!drawsFromDB.isEmpty() && drawsFromDB.stream().anyMatch(d -> d.getNumbers() == null || d.getNumbers().length == 0)) {
 			log.info("Found NO draw day in the database: {} {} ", date, drawTypeStr);
-			var nextDate = date.plusDays(1);
+			var nextDate = getNextDrawDate(date);
 			return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, actualDraw);
 		} else {
 			log.info("Draw NOT found in the database: {} {} ... proceeding to Lotto API", date, drawTypeStr);
@@ -74,7 +74,7 @@ public class LottoClientImpl implements LottoClient {
                 log.debug("Calling Lotto API: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws));
                 responseBody = makeRequest(date, drawTypeStr);
             } catch (LottoException e) {
-                var nextDate = date.plusDays(1);
+                var nextDate = getNextDrawDate(date);
                 log.info("No draw found for type={} on date={}, moving to next date={}", drawTypeStr, date, nextDate);
 				lottoDrawService.save(List.of(new LottoDrawDto(date, DrawType.get(drawTypeStr))));
                 return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, actualDraw);
@@ -83,7 +83,7 @@ public class LottoClientImpl implements LottoClient {
             result.addAll(lottoDrawService.save(lottoDraws));
             log.info("Parsed Lotto API response for type={}: addedDraws={}, accumulatedDraws={}",
                     drawTypeStr, lottoDraws.size(), result.size());
-            var nextDate = date.plusDays(1);
+            var nextDate = getNextDrawDate(date);
             return getDrawResultForDate(nextDate, drawTypeStr, result, numberOfDraws, ++actualDraw);
         } catch (TooManyRequestsException e) {
             log.error("Too many requests for draws: {}", LogSanitizer.summarizeDrawFetch(date, drawTypeStr, actualDraw, numberOfDraws), e);
@@ -156,5 +156,17 @@ public class LottoClientImpl implements LottoClient {
                 "&" + "sort=" + "drawDate" +
                 "&" + "order=" + "ASC";
     }
+
+	private LocalDate getNextDrawDate(LocalDate date) {
+		return switch (date.getDayOfWeek()) {
+			case TUESDAY -> date.plusDays(2);
+			case THURSDAY -> date.plusDays(2);
+			case SATURDAY -> date.plusDays(3);
+			case SUNDAY -> date.plusDays(2);
+			case MONDAY -> date.plusDays(1);
+			case WEDNESDAY -> date.plusDays(1);
+			case FRIDAY -> date.plusDays(1);
+		};
+	}
 
 }
