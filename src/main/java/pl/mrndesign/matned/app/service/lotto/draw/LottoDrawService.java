@@ -10,4 +10,6 @@ public interface LottoDrawService {
 	List<LottoDrawDto> findDrawsFor(LocalDate date, String drawTypeStr);
 
 	List<LottoDrawDto> save(List<LottoDrawDto> lottoDraws);
+
+	List<Integer> findTop10MostFrequentNumbers();
 }

@@ -15,6 +15,7 @@ import pl.mrndesign.matned.app.mapper.LottoMapper;
 import pl.mrndesign.matned.app.mapper.impl.LottoCardMapper;
 import pl.mrndesign.matned.app.model.LottoCard;
 import pl.mrndesign.matned.app.repository.LottoCardRepository;
+import pl.mrndesign.matned.app.service.lotto.draw.LottoDrawService;
 import pl.mrndesign.matned.app.service.lotto.common.LottoService;
 
 import java.time.LocalDate;
@@ -33,11 +34,13 @@ public class RestApiController {
     private static final int MAX_NUMBER_GROUPS = 10;
 
     private final LottoService lottoService;
+    private final LottoDrawService lottoDrawService;
     private final LottoCardRepository lottoCardRepository;
 	private final LottoMapper<LottoCard, LottoCardDto> lottoCardMapper = new LottoCardMapper();
 
-    public RestApiController(LottoService lottoService, LottoCardRepository lottoCardRepository) {
+    public RestApiController(LottoService lottoService, LottoDrawService lottoDrawService, LottoCardRepository lottoCardRepository) {
         this.lottoService = lottoService;
+        this.lottoDrawService = lottoDrawService;
         this.lottoCardRepository = lottoCardRepository;
     }
 
@@ -126,6 +129,13 @@ public class RestApiController {
     public ResponseEntity<Boolean> deleteCard(@PathVariable Long id) {
         lottoCardRepository.deleteById(id);
         return ResponseEntity.ok(true);
+    }
+
+    @GetMapping(path = "/stats/most-frequent-numbers")
+    public ResponseEntity<List<Integer>> getMostFrequentNumbers() {
+        var numbers = lottoDrawService.findTop10MostFrequentNumbers();
+        log.info("Returned most frequent lotto numbers: {}", numbers);
+        return ResponseEntity.ok(numbers);
     }
 
     private String ownerSubject(Authentication authentication) {

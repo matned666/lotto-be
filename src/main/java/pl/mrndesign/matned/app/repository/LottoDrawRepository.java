@@ -14,4 +14,7 @@ public interface LottoDrawRepository extends JpaRepository<LottoDraw, Long> {
 	@Query("SELECT ld FROM LottoDraw ld WHERE ld.date = :date AND ld.drawType = :drawType")
 	List<LottoDraw> findAllLottoDrawsByDateAndDrawType(@Param("date") LocalDate date, @Param("drawType") DrawType drawType);
 
+	@Query("SELECT DISTINCT ld FROM LottoDraw ld LEFT JOIN FETCH ld.numbers numbers LEFT JOIN FETCH numbers.numbers")
+	List<LottoDraw> findAllWithNumbers();
+
 }

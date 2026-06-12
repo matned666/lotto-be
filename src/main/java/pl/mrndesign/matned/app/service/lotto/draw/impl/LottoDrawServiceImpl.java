@@ -11,7 +11,12 @@ import pl.mrndesign.matned.app.repository.LottoDrawRepository;
 import pl.mrndesign.matned.app.service.lotto.draw.LottoDrawService;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -37,6 +42,24 @@ public class LottoDrawServiceImpl implements LottoDrawService {
 				.map(dto -> lottoDrawRepository.save(lottoDrawMapper.toEntity(dto)))
 				.toList();
 		return lottoDrawMapper.toDto(draws);
+	}
+
+	@Override
+	public List<Integer> findTop10MostFrequentNumbers() {
+		Map<Integer, Long> frequencyByNumber = lottoDrawRepository.findAllWithNumbers().stream()
+				.map(LottoDraw::getNumbers)
+				.filter(Objects::nonNull)
+				.map(numbers -> numbers.getNumbers())
+				.filter(Objects::nonNull)
+				.flatMap(List::stream)
+				.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+		return frequencyByNumber.entrySet().stream()
+				.sorted(Map.Entry.<Integer, Long>comparingByValue(Comparator.reverseOrder())
+						.thenComparing(Map.Entry.comparingByKey()))
+				.limit(10)
+				.map(Map.Entry::getKey)
+				.toList();
 	}
 
 }
