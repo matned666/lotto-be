@@ -12,9 +12,13 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import pl.mrndesign.matned.app.dto.auth.AppOAuth2UserPrincipal;
+import pl.mrndesign.matned.app.dto.auth.AppOidcUserPrincipal;
 import pl.mrndesign.matned.app.model.auth.AuthProviderType;
+import pl.mrndesign.matned.app.model.auth.Authority;
 import pl.mrndesign.matned.app.model.auth.OAuthAccount;
 import pl.mrndesign.matned.app.model.auth.User;
+import pl.mrndesign.matned.app.repository.AuthorityRepository;
 import pl.mrndesign.matned.app.repository.OAuthAccountRepository;
 import pl.mrndesign.matned.app.repository.UserRepository;
 
@@ -27,77 +31,52 @@ public class AuthService extends DefaultOAuth2UserService {
 	private final OidcUserService oidcUserService = new OidcUserService();
     private final UserRepository userRepository;
     private final OAuthAccountRepository oauthAccountRepository;
+	private final AuthorityRepository authorityRepository;
 
-    public AuthService(UserRepository userRepository, OAuthAccountRepository oauthAccountRepository) {
+    public AuthService(UserRepository userRepository,
+                       OAuthAccountRepository oauthAccountRepository,
+                       AuthorityRepository authorityRepository) {
         this.userRepository = userRepository;
         this.oauthAccountRepository = oauthAccountRepository;
+	    this.authorityRepository = authorityRepository;
     }
 
 	@Override
 	@Transactional
 	public OAuth2User loadUser(OAuth2UserRequest request)
 			throws OAuth2AuthenticationException {
-
 		OAuth2User oauthUser = super.loadUser(request);
-
-		saveOrUpdateOAuthUser(
+		User user = saveOrUpdateOAuthUser(
 				request.getClientRegistration().getRegistrationId(),
 				oauthUser.getAttributes()
 		);
-
-		return oauthUser;
+		return new AppOAuth2UserPrincipal(user, oauthUser);
 	}
 
 	@Transactional
 	public OidcUser loadOidcUser(OidcUserRequest request)
 			throws OAuth2AuthenticationException {
-
 		OidcUser oidcUser = oidcUserService.loadUser(request);
-
-		saveOrUpdateOAuthUser(
+		User user = saveOrUpdateOAuthUser(
 				request.getClientRegistration().getRegistrationId(),
 				oidcUser.getAttributes()
 		);
-
-		return oidcUser;
+		return new AppOidcUserPrincipal(user, oidcUser);
 	}
 
 	@Transactional
 	public User getByAuth(Authentication authentication) {
-
-		if (!(authentication.getPrincipal() instanceof OAuth2User oauthUser)) {
-			throw new IllegalStateException("User is not authenticated via OAuth2");
+		Object principal = authentication.getPrincipal();
+		if (principal instanceof AppOAuth2UserPrincipal appUser) {
+			return appUser.getUser();
 		}
-
-		String registrationId = null;
-
-		if (authentication instanceof OAuth2AuthenticationToken token) {
-			registrationId = token.getAuthorizedClientRegistrationId();
+		if (principal instanceof AppOidcUserPrincipal appUser) {
+			return appUser.getUser();
 		}
-
-		if (registrationId == null) {
-			throw new IllegalStateException("Cannot determine OAuth provider");
-		}
-
-		AuthProviderType provider = AuthProviderType.valueOf(
-				registrationId.toUpperCase()
-		);
-
-		String providerUserId = extractProviderUserId(
-				provider,
-				oauthUser.getAttributes()
-		);
-
-		return oauthAccountRepository
-				.findByProviderAndProviderUserId(provider, providerUserId)
-				.map(OAuthAccount::getUser)
-				.orElseThrow(() -> new UsernameNotFoundException(
-						"User not found for provider=" + provider +
-								", providerUserId=" + providerUserId
-				));
+		throw new IllegalStateException("Unsupported authentication principal");
 	}
 
-	private void saveOrUpdateOAuthUser(
+	private User saveOrUpdateOAuthUser(
 			String registrationId,
 			Map<String, Object> attributes
 	) {
@@ -134,7 +113,7 @@ public class AuthService extends DefaultOAuth2UserService {
 		user.setUpdatedAt(Instant.now());
 		user.setEmail(email);
 
-		userRepository.save(user);
+		return userRepository.save(user);
 	}
 	private OAuthAccount createAccount(
 			AuthProviderType provider,
@@ -145,16 +124,24 @@ public class AuthService extends DefaultOAuth2UserService {
 	) {
 		Instant now = Instant.now();
 
+		Authority userRole = authorityRepository
+				.findByName("ROLE_USER")
+				.orElseThrow(() -> new IllegalStateException("ROLE_USER not found"));
+
 		User user = userRepository.findByEmail(email)
-				.orElseGet(() -> userRepository.save(
-						User.builder()
-								.email(email)
-								.name(name)
-								.avatarUrl(avatarUrl)
-								.createdAt(now)
-								.updatedAt(now)
-								.build()
-				));
+				.orElseGet(() -> {
+					User newUser = User.builder()
+							.email(email)
+							.name(name)
+							.avatarUrl(avatarUrl)
+							.createdAt(now)
+							.updatedAt(now)
+							.build();
+
+					newUser.getAuthorities().add(userRole);
+
+					return userRepository.save(newUser);
+				});
 
 		OAuthAccount account = OAuthAccount.builder()
 				.user(user)

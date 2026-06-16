@@ -13,12 +13,15 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
@@ -30,6 +33,7 @@ import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
+@EnableMethodSecurity
 public class SecurityConfiguration {
 
 	private final AuthService authService;
@@ -39,84 +43,73 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-    @Order(1)
-    @Profile("local")
-    SecurityFilterChain h2ConsoleSecurityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .securityMatcher("/h2-console/**")
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
+	SecurityFilterChain apiSecurityFilterChain(
+			HttpSecurity http,
+			SecurityProperties securityProperties,
+			ObjectProvider<ClientRegistrationRepository> clientRegistrations
+	) throws Exception {
+		http
+				.csrf(csrf -> csrf
+						.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+						.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+				.cors(Customizer.withDefaults())
+				.authorizeHttpRequests(authorize -> authorize
+						.requestMatchers("/error").permitAll()
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
+						.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+						.anyRequest().access(new WebExpressionAuthorizationManager(
+								"isAuthenticated() and (hasRole('USER') or hasRole('ADMIN')) and !hasRole('BLOCKED')"
+						)))
+				.logout(logout -> logout
+						.logoutUrl("/api/auth/logout")
+						.logoutSuccessUrl(securityProperties.logoutSuccessUrl())
+						.invalidateHttpSession(true)
+						.clearAuthentication(true)
+						.deleteCookies("JSESSIONID"))
+				.exceptionHandling(exceptions -> exceptions
+						.defaultAuthenticationEntryPointFor(
+								new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+								PathPatternRequestMatcher.withDefaults().matcher("/**")
+						)
+				);
 
-        return http.build();
-    }
+		if (clientRegistrations.getIfAvailable() == null) {
+			http.exceptionHandling(exceptions -> exceptions
+					.authenticationEntryPoint(
+							(request, response, exception) ->
+									response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
 
-    @Bean
-    @Order(2)
-    SecurityFilterChain apiSecurityFilterChain(
-            HttpSecurity http,
-            SecurityProperties securityProperties,
-            ObjectProvider<ClientRegistrationRepository> clientRegistrations
-    ) throws Exception {
-        http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
-                .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
-                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                        .anyRequest().authenticated())
-                .logout(logout -> logout
-                        .logoutUrl("/api/auth/logout")
-                        .logoutSuccessUrl(securityProperties.logoutSuccessUrl())
-                        .invalidateHttpSession(true)
-                        .clearAuthentication(true)
-                        .deleteCookies("JSESSIONID"))
-                .exceptionHandling(exceptions -> exceptions
-		                .defaultAuthenticationEntryPointFor(
-				                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-				                PathPatternRequestMatcher.withDefaults().matcher("/**")
-		                )
-		        );
+					));
+		} else {
+			http.oauth2Login(oauth2 -> oauth2
+					.defaultSuccessUrl(securityProperties.loginSuccessUrl(), true)
+					.userInfoEndpoint(userInfo -> userInfo
+							.userService(this.authService)
+							.oidcUserService(this.authService::loadOidcUser))
+			);
+		}
 
-        if (clientRegistrations.getIfAvailable() == null) {
-            http.exceptionHandling(exceptions -> exceptions
-                    .authenticationEntryPoint((request, response, exception) ->
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
+		return http.build();
+	}
 
-                    ));
-        } else {
-            http.oauth2Login(oauth2 -> oauth2
-                    .defaultSuccessUrl(securityProperties.loginSuccessUrl(), true)
-		            .userInfoEndpoint(userInfo -> userInfo
-				            .userService(this.authService)
-				            .oidcUserService(this.authService::loadOidcUser))
-            );
-        }
+	@Bean
+	PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
 
-        return http.build();
-    }
+	@Bean
+	CorsConfigurationSource corsConfigurationSource(SecurityProperties securityProperties) {
+		var configuration = new CorsConfiguration();
+		configuration.setAllowedOriginPatterns(securityProperties.allowedOriginPatterns());
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-XSRF-TOKEN"));
+		configuration.setExposedHeaders(List.of("Location"));
+		configuration.setAllowCredentials(true);
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    CorsConfigurationSource corsConfigurationSource(SecurityProperties securityProperties) {
-        var configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(securityProperties.allowedOriginPatterns());
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-XSRF-TOKEN"));
-        configuration.setExposedHeaders(List.of("Location"));
-        configuration.setAllowCredentials(true);
-
-        var source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("https://github.com/login", configuration);
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+		var source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("https://github.com/login", configuration);
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
 }

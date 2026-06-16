@@ -127,4 +127,137 @@
                              columnNames="PROVIDER_TYPE, PROVIDER_USER_ID"
                              constraintName="UK_OAUTH_ACCOUNTS_PROVIDER_USER"/>
     </changeSet>
+
+    <changeSet id="004-create-authority-table" author="matned">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="AUTHORITY"/>
+            </not>
+        </preConditions>
+        <createTable tableName="AUTHORITY">
+            <column name="ID" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="NAME" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="005-create-user-authorities-table" author="matned">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="USER_AUTHORITIES"/>
+            </not>
+        </preConditions>
+        <createTable tableName="USER_AUTHORITIES">
+            <column name="USER_ID" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="AUTHORITY_ID" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey
+                tableName="USER_AUTHORITIES"
+                columnNames="USER_ID,AUTHORITY_ID"
+                constraintName="PK_USER_AUTHORITIES"/>
+        <addForeignKeyConstraint
+                baseTableName="USER_AUTHORITIES"
+                baseColumnNames="USER_ID"
+                referencedTableName="USERS"
+                referencedColumnNames="ID"
+                constraintName="FK_USER_AUTHORITIES_USER"/>
+        <addForeignKeyConstraint
+                baseTableName="USER_AUTHORITIES"
+                baseColumnNames="AUTHORITY_ID"
+                referencedTableName="AUTHORITY"
+                referencedColumnNames="ID"
+                constraintName="FK_USER_AUTHORITIES_AUTHORITY"/>
+    </changeSet>
+
+    <changeSet id="006-insert-role-user" author="mateusz">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <sqlCheck expectedResult="1">
+                    SELECT COUNT(*)
+                    FROM AUTHORITY
+                    WHERE NAME = 'ROLE_USER'
+                </sqlCheck>
+            </not>
+        </preConditions>
+        <insert tableName="AUTHORITY">
+            <column name="NAME" value="ROLE_USER"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="007-insert-role-admin" author="mateusz">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <sqlCheck expectedResult="1">
+                    SELECT COUNT(*)
+                    FROM AUTHORITY
+                    WHERE NAME = 'ROLE_ADMIN'
+                </sqlCheck>
+            </not>
+        </preConditions>
+        <insert tableName="AUTHORITY">
+            <column name="NAME" value="ROLE_ADMIN"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="008-assign-role-user-to-existing-users" author="mateusz">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">
+                SELECT CASE
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM USERS u
+                                        JOIN AUTHORITY a ON a.NAME = 'ROLE_USER'
+                               WHERE NOT EXISTS (
+                                   SELECT 1
+                                   FROM USER_AUTHORITIES ua
+                                   WHERE ua.USER_ID = u.ID
+                                     AND ua.AUTHORITY_ID = a.ID
+                               )
+                           )
+                               THEN 1
+                           ELSE 0
+                           END
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO USER_AUTHORITIES (USER_ID, AUTHORITY_ID)
+            SELECT
+                u.ID,
+                a.ID
+            FROM USERS u
+                     JOIN AUTHORITY a
+                          ON a.NAME = 'ROLE_USER'
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM USER_AUTHORITIES ua
+                WHERE ua.USER_ID = u.ID
+                  AND ua.AUTHORITY_ID = a.ID
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="009-insert-role-blocked" author="mateusz">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <sqlCheck expectedResult="1">
+                    SELECT COUNT(*)
+                    FROM AUTHORITY
+                    WHERE NAME = 'ROLE_BLOCKED'
+                </sqlCheck>
+            </not>
+        </preConditions>
+        <insert tableName="AUTHORITY">
+            <column name="NAME" value="ROLE_BLOCKED"/>
+        </insert>
+    </changeSet>
+
+
+
 </databaseChangeLog>

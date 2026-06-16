@@ -1,12 +1,15 @@
 package pl.mrndesign.matned.app.model.auth;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -30,4 +33,14 @@ public class User {
 
     private Instant createdAt;
     private Instant updatedAt;
+
+	@ManyToMany(fetch = FetchType.LAZY)
+	@JoinTable(
+			name = "USER_AUTHORITIES",
+			joinColumns = @JoinColumn(name = "USER_ID"),
+			inverseJoinColumns = @JoinColumn(name = "AUTHORITY_ID")
+	)
+	@Builder.Default
+	private Set<Authority> authorities = new HashSet<>();
+
 }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
+import pl.mrndesign.matned.app.model.auth.Authority;
 import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @RestController
@@ -39,15 +40,13 @@ public class AuthController {
 
         var displayName = user.getName();
         var email = user.getEmail();
-        var authorities = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
+        var authorities = user.getAuthorities();
 
         var response = new AuthenticatedUserResponse(
                 authentication.getName(),
                 displayName == null ? authentication.getName() : displayName,
                 email,
-                authorities,
+                authorities.stream().map(Authority::getName).toList(),
 		        user.getAvatarUrl()
         );
         log.info("Resolved authenticated user: subject={}, email={}, authorities={}",
