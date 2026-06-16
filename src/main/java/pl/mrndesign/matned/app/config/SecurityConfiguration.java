@@ -26,12 +26,19 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfiguration {
 
-    @Bean
+	private final AuthService authService;
+
+	public SecurityConfiguration(AuthService authService) {
+		this.authService = authService;
+	}
+
+	@Bean
     @Order(1)
     @Profile("local")
     SecurityFilterChain h2ConsoleSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -73,7 +80,7 @@ public class SecurityConfiguration {
 				                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
 				                PathPatternRequestMatcher.withDefaults().matcher("/**")
 		                )
-                );
+		        );
 
         if (clientRegistrations.getIfAvailable() == null) {
             http.exceptionHandling(exceptions -> exceptions
@@ -83,7 +90,11 @@ public class SecurityConfiguration {
                     ));
         } else {
             http.oauth2Login(oauth2 -> oauth2
-                    .defaultSuccessUrl(securityProperties.loginSuccessUrl(), true));
+                    .defaultSuccessUrl(securityProperties.loginSuccessUrl(), true)
+		            .userInfoEndpoint(userInfo -> userInfo
+				            .userService(this.authService)
+				            .oidcUserService(this.authService::loadOidcUser))
+            );
         }
 
         return http.build();

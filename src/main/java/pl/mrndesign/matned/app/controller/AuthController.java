@@ -14,18 +14,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
-import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @RestController
 @RequestMapping("/api/auth")
 @Slf4j
 public class AuthController {
 
-    private final AuthService authService;
-
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
 
     @GetMapping("/me")
     public AuthenticatedUserResponse currentUser(Authentication authentication) {
@@ -34,10 +28,7 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
         log.info("Processing /api/auth/me for subject={}", LogSanitizer.maskSubject(authentication.getName()));
-        if (authService.isUserSaved(authentication.getName())) {
-            log.info("User marked as existing in repository for subject={}", LogSanitizer.maskSubject(authentication.getName()));
-            authService.saveNewUser(authentication);
-        }
+
         var attributes = principalAttributes(authentication.getPrincipal());
         var displayName = firstString(attributes, "name", "given_name", "preferred_username", "email");
         var email = firstString(attributes, "email", "preferred_username", "upn");
