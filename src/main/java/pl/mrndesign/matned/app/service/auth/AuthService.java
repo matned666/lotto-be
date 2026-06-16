@@ -1,6 +1,9 @@
 package pl.mrndesign.matned.app.service.auth;
 
 import jakarta.transaction.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -57,6 +60,41 @@ public class AuthService extends DefaultOAuth2UserService {
 		);
 
 		return oidcUser;
+	}
+
+	@Transactional
+	public User getByAuth(Authentication authentication) {
+
+		if (!(authentication.getPrincipal() instanceof OAuth2User oauthUser)) {
+			throw new IllegalStateException("User is not authenticated via OAuth2");
+		}
+
+		String registrationId = null;
+
+		if (authentication instanceof OAuth2AuthenticationToken token) {
+			registrationId = token.getAuthorizedClientRegistrationId();
+		}
+
+		if (registrationId == null) {
+			throw new IllegalStateException("Cannot determine OAuth provider");
+		}
+
+		AuthProviderType provider = AuthProviderType.valueOf(
+				registrationId.toUpperCase()
+		);
+
+		String providerUserId = extractProviderUserId(
+				provider,
+				oauthUser.getAttributes()
+		);
+
+		return oauthAccountRepository
+				.findByProviderAndProviderUserId(provider, providerUserId)
+				.map(OAuthAccount::getUser)
+				.orElseThrow(() -> new UsernameNotFoundException(
+						"User not found for provider=" + provider +
+								", providerUserId=" + providerUserId
+				));
 	}
 
 	private void saveOrUpdateOAuthUser(

@@ -14,14 +14,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import pl.mrndesign.matned.app.logging.LogSanitizer;
+import pl.mrndesign.matned.app.service.auth.AuthService;
 
 @RestController
 @RequestMapping("/api/auth")
 @Slf4j
 public class AuthController {
 
+	private final AuthService authService;
 
-    @GetMapping("/me")
+	public AuthController(AuthService authService) {
+		this.authService = authService;
+	}
+
+	@GetMapping("/me")
     public AuthenticatedUserResponse currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             log.warn("Rejected /api/auth/me request due to missing or unauthenticated principal.");
@@ -29,9 +35,10 @@ public class AuthController {
         }
         log.info("Processing /api/auth/me for subject={}", LogSanitizer.maskSubject(authentication.getName()));
 
-        var attributes = principalAttributes(authentication.getPrincipal());
-        var displayName = firstString(attributes, "name", "given_name", "preferred_username", "email");
-        var email = firstString(attributes, "email", "preferred_username", "upn");
+		var user = authService.getByAuth(authentication);
+
+        var displayName = user.getName();
+        var email = user.getEmail();
         var authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
@@ -40,7 +47,8 @@ public class AuthController {
                 authentication.getName(),
                 displayName == null ? authentication.getName() : displayName,
                 email,
-                authorities
+                authorities,
+		        user.getAvatarUrl()
         );
         log.info("Resolved authenticated user: subject={}, email={}, authorities={}",
                 LogSanitizer.maskSubject(response.subject()),
@@ -73,7 +81,8 @@ public class AuthController {
             String subject,
             String displayName,
             String email,
-            List<String> authorities
+            List<String> authorities,
+            String avatar
     ) {
     }
 }
