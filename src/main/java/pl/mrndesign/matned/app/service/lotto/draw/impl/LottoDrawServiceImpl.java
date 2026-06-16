@@ -9,14 +9,10 @@ import pl.mrndesign.matned.app.model.DrawType;
 import pl.mrndesign.matned.app.model.LottoDraw;
 import pl.mrndesign.matned.app.repository.LottoDrawRepository;
 import pl.mrndesign.matned.app.service.lotto.draw.LottoDrawService;
+import pl.mrndesign.matned.app.utils.LottoUtils;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -45,21 +41,19 @@ public class LottoDrawServiceImpl implements LottoDrawService {
 	}
 
 	@Override
-	public List<Integer> findTop10MostFrequentNumbers() {
-		Map<Integer, Long> frequencyByNumber = lottoDrawRepository.findAllWithNumbers().stream()
-				.map(LottoDraw::getNumbers)
-				.filter(Objects::nonNull)
-				.map(numbers -> numbers.getNumbers())
-				.filter(Objects::nonNull)
-				.flatMap(List::stream)
-				.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+	public List<Integer> findTopMostFrequentNumbers(int numberOfNumbers) {
+		List<Integer[]> draws = lottoDrawRepository.findAllWithNumbers().stream().map(ld -> ld.getNumbers().getNumbers().toArray(Integer[]::new)).toList();
+		return LottoUtils.calculateMostProbableSet(draws, numberOfNumbers);
 
-		return frequencyByNumber.entrySet().stream()
-				.sorted(Map.Entry.<Integer, Long>comparingByValue(Comparator.reverseOrder())
-						.thenComparing(Map.Entry.comparingByKey()))
-				.limit(10)
-				.map(Map.Entry::getKey)
-				.toList();
 	}
+
+	@Override
+	public List<Integer> findTopMostFrequentWeightNumbers(int numberOfNumbers) {
+		List<Integer[]> draws = lottoDrawRepository.findAllWithNumbers().stream().map(ld -> ld.getNumbers().getNumbers().toArray(Integer[]::new)).toList();
+		return LottoUtils.calculateMostProbableSetWeighted(draws, numberOfNumbers);
+
+	}
+
+
 
 }

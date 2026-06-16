@@ -132,9 +132,16 @@ public class RestApiController {
     }
 
     @GetMapping(path = "/stats/most-frequent-numbers")
-    public ResponseEntity<List<Integer>> getMostFrequentNumbers() {
-        var numbers = lottoDrawService.findTop10MostFrequentNumbers();
-        log.info("Returned most frequent lotto numbers: {}", numbers);
+    public ResponseEntity<List<Integer>> getMostFrequentNumbers(@RequestParam (defaultValue = "6") Integer numberOfNumbers) {
+        var numbers = lottoDrawService.findTopMostFrequentNumbers(numberOfNumbers);
+        log.info("Returned most frequent {} lotto numbers: {}", numberOfNumbers, numbers);
+        return ResponseEntity.ok(numbers);
+    }
+
+    @GetMapping(path = "/stats/most-frequent-numbers-by-weight")
+    public ResponseEntity<List<Integer>> getMostFrequentNumbersByWeight(@RequestParam (defaultValue = "6") Integer numberOfNumbers) {
+        var numbers = lottoDrawService.findTopMostFrequentWeightNumbers(numberOfNumbers);
+        log.info("Returned most frequent {} lotto numbers by weight: {}", numberOfNumbers, numbers);
         return ResponseEntity.ok(numbers);
     }
 

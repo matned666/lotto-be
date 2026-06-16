@@ -11,5 +11,7 @@ public interface LottoDrawService {
 
 	List<LottoDrawDto> save(List<LottoDrawDto> lottoDraws);
 
-	List<Integer> findTop10MostFrequentNumbers();
+	List<Integer> findTopMostFrequentNumbers(int numberOfNumbers);
+
+	List<Integer> findTopMostFrequentWeightNumbers(int numberOfNumbers);
 }
