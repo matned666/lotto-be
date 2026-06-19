@@ -2,8 +2,6 @@ package pl.mrndesign.matned.app.service.auth;
 
 import jakarta.transaction.Transactional;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -18,12 +16,16 @@ import pl.mrndesign.matned.app.model.auth.AuthProviderType;
 import pl.mrndesign.matned.app.model.auth.Authority;
 import pl.mrndesign.matned.app.model.auth.OAuthAccount;
 import pl.mrndesign.matned.app.model.auth.User;
+import pl.mrndesign.matned.app.model.config.Properties;
+import pl.mrndesign.matned.app.model.config.PropertyType;
 import pl.mrndesign.matned.app.repository.AuthorityRepository;
 import pl.mrndesign.matned.app.repository.OAuthAccountRepository;
+import pl.mrndesign.matned.app.repository.PropertiesRepository;
 import pl.mrndesign.matned.app.repository.UserRepository;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class AuthService extends DefaultOAuth2UserService {
@@ -32,13 +34,16 @@ public class AuthService extends DefaultOAuth2UserService {
     private final UserRepository userRepository;
     private final OAuthAccountRepository oauthAccountRepository;
 	private final AuthorityRepository authorityRepository;
+	private final PropertiesRepository propertiesRepository;
 
     public AuthService(UserRepository userRepository,
                        OAuthAccountRepository oauthAccountRepository,
-                       AuthorityRepository authorityRepository) {
+                       AuthorityRepository authorityRepository,
+                       PropertiesRepository propertiesRepository) {
         this.userRepository = userRepository;
         this.oauthAccountRepository = oauthAccountRepository;
 	    this.authorityRepository = authorityRepository;
+	    this.propertiesRepository = propertiesRepository;
     }
 
 	@Override
@@ -97,8 +102,13 @@ public class AuthService extends DefaultOAuth2UserService {
 		String name = extractName(provider, attributes);
 		String avatarUrl = extractAvatarUrl(provider, attributes);
 
+		AtomicBoolean newUser = new AtomicBoolean(true);
 		OAuthAccount account = oauthAccountRepository
 				.findByProviderAndProviderUserId(provider, providerUserId)
+				.map(existingAccount -> {
+					newUser.set(false);
+					return existingAccount;
+				})
 				.orElseGet(() -> createAccount(
 						provider,
 						providerUserId,
@@ -113,7 +123,20 @@ public class AuthService extends DefaultOAuth2UserService {
 		user.setUpdatedAt(Instant.now());
 		user.setEmail(email);
 
-		return userRepository.save(user);
+		User saved = userRepository.save(user);
+		userRepository.flush();
+
+		if(newUser.get()) {
+			propertiesRepository.save(Properties.builder()
+					.type(PropertyType.EMAIL)
+					.name("prop.data.email")
+					.value(user.getEmail())
+					.user(saved)
+					.enabled(true)
+					.build());
+		}
+
+		return saved;
 	}
 	private OAuthAccount createAccount(
 			AuthProviderType provider,

@@ -2,6 +2,7 @@ spring:
   application:
     name: lotto-check
   jpa:
+    defer-datasource-initialization: false
     hibernate:
       ddl-auto: validate
     properties:

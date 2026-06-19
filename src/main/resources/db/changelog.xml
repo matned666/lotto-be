@@ -258,6 +258,61 @@
         </insert>
     </changeSet>
 
+    <changeSet id="010-create-properties-table" author="matned">
+        <preConditions onFail="MARK_RAN" onError="HALT">
+            <not>
+                <tableExists tableName="PROPERTIES"/>
+            </not>
+        </preConditions>
+        <createTable tableName="PROPERTIES">
+            <column name="ID" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true"
+                             primaryKeyName="PK_PROPERTIES"
+                             nullable="false"/>
+            </column>
+            <column name="USER_ID" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="TYPE" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="NAME" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="VALUE" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ENABLED" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="PROPERTIES"
+                baseColumnNames="USER_ID"
+                constraintName="FK_PROPERTIES_USER"
+                referencedTableName="USERS"
+                referencedColumnNames="ID"/>
+        <createIndex tableName="PROPERTIES"
+                     indexName="IDX_PROPERTIES_USER_ID">
+            <column name="USER_ID"/>
+        </createIndex>
+    </changeSet>
 
+    <changeSet id="011-insert-sample-property" author="matned">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="PROPERTIES"/>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*)
+                FROM PROPERTIES
+                WHERE USER_ID = 1
+                  AND NAME = 'notifications.enabled'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="users"><column name="id" valueNumeric="0"/><column name="name" value="DEFAULT"/><column name="email" value="default@email.pl"/></insert>
+        <insert tableName="PROPERTIES"><column name="USER_ID" valueNumeric="0"/><column name="TYPE" value="BOOLEAN"/><column name="NAME" value="prop.notifications.enabled"/><column name="VALUE" value="false"/><column name="ENABLED" valueBoolean="false"/></insert>
+        <insert tableName="PROPERTIES"><column name="USER_ID" valueNumeric="0"/><column name="TYPE" value="BOOLEAN"/><column name="NAME" value="prop.lotto.check.scheduler.enabled"/><column name="VALUE" value="false"/><column name="ENABLED" valueBoolean="true"/></insert>
+        <insert tableName="PROPERTIES"><column name="USER_ID" valueNumeric="0"/><column name="TYPE" value="SCHEDULER"/><column name="NAME" value="prop.lotto.check.time"/><column name="VALUE" value="0 0 22 * * TUE,THU,SAT"/><column name="ENABLED" valueBoolean="true"/></insert>
+        <insert tableName="PROPERTIES"><column name="USER_ID" valueNumeric="0"/><column name="TYPE" value="EMAIL"/><column name="NAME" value="prop.data.email"/><column name="VALUE" value=""/><column name="ENABLED" valueBoolean="true"/></insert>
+    </changeSet>
 
 </databaseChangeLog>

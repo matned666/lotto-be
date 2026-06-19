@@ -41,16 +41,16 @@ public class LottoCheckApplication {
         };
     }
 
-    @Bean
-    @ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", havingValue = "true", matchIfMissing = true)
-    SpringLiquibase springLiquibase(DataSource dataSource, Environment environment) {
-        var liquibase = new SpringLiquibase();
-        liquibase.setDataSource(dataSource);
-        liquibase.setChangeLog(environment.getProperty("spring.liquibase.change-log", "classpath:db/changelog.xml"));
-        liquibase.setDatabaseChangeLogTable(environment.getProperty("spring.liquibase.database-change-log-table", "DATABASECHANGELOG"));
-        liquibase.setDatabaseChangeLogLockTable(environment.getProperty("spring.liquibase.database-change-log-lock-table", "DATABASECHANGELOGLOCK"));
-        liquibase.setShouldRun(Boolean.parseBoolean(environment.getProperty("spring.liquibase.enabled", "true")));
-        return liquibase;
-    }
+	@Bean(name = "liquibase")
+	@ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", havingValue = "true", matchIfMissing = true)
+	SpringLiquibase springLiquibase(DataSource dataSource, Environment environment) {
+		var liquibase = new SpringLiquibase();
+		liquibase.setDataSource(dataSource);
+		liquibase.setChangeLog(environment.getProperty("spring.liquibase.change-log", "classpath:db/changelog.xml"));
+		liquibase.setDatabaseChangeLogTable(environment.getProperty("spring.liquibase.database-change-log-table", "DATABASECHANGELOG"));
+		liquibase.setDatabaseChangeLogLockTable(environment.getProperty("spring.liquibase.database-change-log-lock-table", "DATABASECHANGELOGLOCK"));
+		liquibase.setShouldRun(Boolean.parseBoolean(environment.getProperty("spring.liquibase.enabled", "true")));
+		return liquibase;
+	}
 }
 
